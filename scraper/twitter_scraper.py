@@ -5,68 +5,74 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-SEARCH_URL = "https://twitter.com/search?q={query}&src=typed_query&f=live"
+# Nitter search URL
+SEARCH_URL = "https://nitter.net/search?f=tweets&q={query}"
 
-def parse_int(text):
-    if not text:
-        return 0
-    text = text.replace(",", "")
-    if "K" in text:
-        return int(float(text.replace("K", "")) * 1000)
-    return int(text)
-
-def extract_tweets(driver, hashtag: str, max_scrolls=20):
+def extract_tweets(driver, hashtag: str, max_scrolls: int = 15) -> list[dict]:
     tweets = []
     cutoff_time = datetime.utcnow() - timedelta(hours=24)
 
-    url = SEARCH_URL.format(query=hashtag)
-    driver.get(url)
-    human_sleep(3, 6)
+    # Remove '#' for Nitter query
+    query = hashtag.replace("#", "")
+    url = SEARCH_URL.format(query=query)
 
+    logger.info(f"Fetching URL: {url}")
+    driver.get(url)
+    human_sleep(3, 5)
+
+    # Scroll page to load more tweets
     scroll_page(driver, scrolls=max_scrolls)
 
-    tweet_elements = driver.find_elements(By.XPATH, "//article")
+    # Each tweet is a timeline-item
+    tweet_elements = driver.find_elements(
+        By.CSS_SELECTOR, ".timeline-item"
+    )
 
     for tweet in tweet_elements:
         try:
-            content = tweet.text
-            if not content:
+            # Content
+            content_el = tweet.find_element(
+                By.CSS_SELECTOR, ".tweet-content"
+            )
+            content = content_el.text.strip()
+
+            if not content or len(content.split()) < 4:
                 continue
 
-            timestamp_el = tweet.find_element(By.TAG_NAME, "time")
+            # Username
+            username = tweet.find_element(
+                By.CSS_SELECTOR, ".username"
+            ).text.strip()
+
+            # Timestamp
+            time_el = tweet.find_element(By.TAG_NAME, "time")
+            timestamp_raw = time_el.get_attribute("datetime")
+
             timestamp = datetime.fromisoformat(
-                timestamp_el.get_attribute("datetime").replace("Z", "")
+                timestamp_raw.replace("Z", "")
             )
 
+            # Filter last 24 hours
             if timestamp < cutoff_time:
                 continue
 
-            username = tweet.find_element(
-                By.XPATH, ".//span[contains(text(),'@')]"
-            ).text
-
-            metrics = tweet.find_elements(
-                By.XPATH, ".//div[@data-testid='like' or @data-testid='retweet' or @data-testid='reply']//span"
-            )
-
-            likes = parse_int(metrics[0].text) if len(metrics) > 0 else 0
-            retweets = parse_int(metrics[1].text) if len(metrics) > 1 else 0
-            replies = parse_int(metrics[2].text) if len(metrics) > 2 else 0
-
             tweets.append({
-                "tweet_id": f"{username}_{timestamp.timestamp()}",
+                "tweet_id": f"{username}_{int(timestamp.timestamp())}",
                 "username": username,
                 "timestamp": timestamp,
                 "content": content,
-                "likes": likes,
-                "retweets": retweets,
-                "replies": replies,
+                "likes": 0,       # Nitter hides engagement
+                "retweets": 0,
+                "replies": 0,
                 "hashtags": [hashtag],
-                "mentions": [w for w in content.split() if w.startswith("@")]
+                "mentions": [
+                    word for word in content.split()
+                    if word.startswith("@")
+                ]
             })
 
         except Exception as e:
-            logger.warning(f"Tweet parse failed: {e}")
+            logger.debug(f"Tweet parse skipped: {e}")
             continue
 
     logger.info(f"{len(tweets)} tweets scraped for {hashtag}")
