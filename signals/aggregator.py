@@ -1,18 +1,23 @@
+# signals/aggregator.py
+
 import math
-from collections import defaultdict
 
 class SignalAggregator:
     def aggregate(self, tweets: list[dict]) -> dict:
-        if not tweets:
+        tweet_volume = len(tweets)
+
+        if tweet_volume == 0:
             return {
                 "signal": "HOLD",
-                "confidence": 0.0
+                "mean_sentiment": 0.0,
+                "confidence": 0.0,
+                "tweet_volume": 0
             }
 
         sentiments = [t["sentiment"] for t in tweets]
-        mean_sentiment = sum(sentiments) / len(sentiments)
+        mean_sentiment = sum(sentiments) / tweet_volume
 
-        confidence = abs(mean_sentiment) * math.log(len(tweets) + 1)
+        confidence = abs(mean_sentiment) * math.log(tweet_volume + 1)
 
         if mean_sentiment > 0.2:
             signal = "BUY"
@@ -23,7 +28,7 @@ class SignalAggregator:
 
         return {
             "signal": signal,
-            "mean_sentiment": mean_sentiment,
-            "confidence": round(confidence, 3),
-            "tweet_volume": len(tweets)
+            "mean_sentiment": round(mean_sentiment, 4),
+            "confidence": round(confidence, 4),
+            "tweet_volume": tweet_volume
         }
