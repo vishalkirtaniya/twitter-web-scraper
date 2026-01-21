@@ -7,6 +7,7 @@ from signals.signal_generator import SignalGenerator
 from signals.aggregator import SignalAggregator
 from storage.parquest_writer import write_parquet
 from storage.market_signal_writer import write_market_signal
+from visualization.streaming_plots import plot_rolling_sentiment
 from utils.logger import get_logger
 
 HASHTAGS = ["#nifty50", "#sensex", "#banknifty", "#intraday"]
@@ -53,6 +54,7 @@ def main():
 
     # 5.2 Store aggregated market signal
     write_market_signal(market_signal)
+    logger.info("Pipeline Step 5 completed successfully")
 
     logger.info(
         f"Market Signal: {market_signal['signal']} | "
@@ -60,10 +62,10 @@ def main():
         f"Tweet Volume: {market_signal['tweet_volume']}"
     )
 
-    # NEXT STEPS:
     # STEP 6: Visualization
+    plot_rolling_sentiment(cleaned_tweets)
 
-    logger.info("Pipeline Step 5 completed successfully")
+    
 
 if __name__ == "__main__":
     main()
