@@ -5,6 +5,8 @@ from processing.feature_engineering import FeatureEngineer
 from signals.sentiment_model import SentimentModel
 from signals.signal_generator import SignalGenerator
 from signals.aggregator import SignalAggregator
+from storage.parquest_writer import write_parquet
+from storage.market_signal_writer import write_market_signal
 from utils.logger import get_logger
 
 HASHTAGS = ["#nifty50", "#sensex", "#banknifty", "#intraday"]
@@ -42,9 +44,15 @@ def main():
     signal_generator.apply(cleaned_tweets)
     logger.info("Per-tweet trading signals generated")
 
-    # 4.3 Agregte Market-Level Signal
+    # 4.3 Agregate Market-Level Signal
     aggregator = SignalAggregator()
     market_signal = aggregator.aggregate(cleaned_tweets)
+
+    # 5.1 Store processed tweets
+    write_parquet(cleaned_tweets)
+
+    # 5.2 Store aggregated market signal
+    write_market_signal(market_signal)
 
     logger.info(
         f"Market Signal: {market_signal['signal']} | "
@@ -53,10 +61,9 @@ def main():
     )
 
     # NEXT STEPS:
-    # STEP 5: Parquet storage
     # STEP 6: Visualization
 
-    logger.info("Pipeline Step 3 completed")
+    logger.info("Pipeline Step 5 completed successfully")
 
 if __name__ == "__main__":
     main()
